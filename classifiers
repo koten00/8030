@@ -1,0 +1,85 @@
+%matplotlib inline
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_files
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from sklearn.metrics import classification_report, accuracy_score
+
+ 
+#load data
+DATA_DIR = " "
+data = load_files(DATA_DIR, encoding="gbk", decode_error="replace")
+# calculate count of each author
+labels, counts = np.unique(data.target, return_counts=True)
+# convert data.target_names to np array for fancy indexing
+labels_str = np.array(data.target_names)[labels]
+#print(dict(zip(labels_str, counts)))
+
+
+#split train set and test set
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(data.data, data.target,test_size=0.3,random_state=0)
+#list(t[:80] for t in X_train[:10])
+#X_pred = pd.read_csv('path',encoding="gbk")
+
+
+#use stop words in Chinese
+stop_word_list=[]
+for i in range(1,5):
+    file_path=r"file"
+    with open(file_path,encoding="UTF-8")as f:
+        stop_words=f.read().split("\n")#one word per line
+        for i in range(0,len(stop_words)):#Dimensionality reduction, from 2d to 1D, then insert text features
+            stop_word_list.append(stop_words[i])
+            #print(stop_words)
+#test
+vectorizer = TfidfVectorizer(stop_words=stop_word_list, max_features=1000, decode_error="ignore")
+vectorizer.fit(X_train)
+X_train_vectorized = vectorizer.transform(X_train)#.toarray()
+#X_feature_names=vectorizer.get_feature_names()
+#print(X_feature_names)
+
+# load target
+X_pred = pd.read_csv('file',encoding="gbk")
+
+#build a naive Bayes model
+from sklearn.naive_bayes import MultinomialNB
+cls = MultinomialNB()
+# transform the list of text to tf-idf
+cls.fit(vectorizer.transform(X_train), y_train)
+# test 
+y_pred = cls.predict(vectorizer.transform(X_test))
+print('Naive Bayes',accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+print(y_pred)
+# test target
+Y_pred = cls.predict(vectorizer.transform(X_pred))
+print(Y_pred)
+
+#build SVM models
+from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import cross_val_score
+
+# with either pure counts or tfidf features 
+svc_count = Pipeline([
+        ("count_vectorizer", CountVectorizer(stop_words=stop_word_list, max_features=1000)),
+        ("linear svc", SVC(kernel="linear"))
+    ])
+svc_tfidf = Pipeline([
+        ("tfidf_vectorizer", TfidfVectorizer(stop_words=stop_word_list, max_features=1000)),
+        ("linear svc", SVC(kernel="linear"))
+    ])
+   
+all_models = [
+    ("svc_count", svc_count),
+    ("svc_tfidf", svc_tfidf),
+    ]
+# test
+unsorted_scores = [(name, cross_val_score(model, X_train, y_train, cv=2).mean()) for name, model in all_models]
+scores = sorted(unsorted_scores, key=lambda x: -x[1])
+print(scores)  
+print(y_pred)
+# test target
+print(Y_pred)
